@@ -43,6 +43,14 @@ class AIslandAdventureGameCharacter : public ACharacter
 	/** Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
+	
+	/** Look Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ClimbAction;
+
+	/** Look Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* GrappleAction;
 
 public:
 	AIslandAdventureGameCharacter(const FObjectInitializer& ObjectInitializer);
@@ -61,6 +69,8 @@ protected:
 	void CancelClimb();
 	void ClimbDash();
 	void Grapple();
+
+	void GrappleJump();
 
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
 		UPlayerMovementComponent* MovementComponent;

@@ -18,10 +18,27 @@ enum ECustomMovementMode
 void UPlayerMovementComponent::TryGrapple()
 {
 	if (!bCanGrapple)
+	{
+		return;
+	}
+		
+
+	if (!IsValid(CurrentAnchor))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TEXT("Creating New Anchor"));
+		CurrentAnchor = GetWorld()->SpawnActor<AActorAnchor>(Anchor);
+	}
+	CurrentAnchor->InitAnchor(LastValidGrapplePoint, ActorToGrapple);
+	currentMaxGrappleDistance = FVector::Distance(CurrentAnchor->GetActorLocation(), GetActorLocation());
+	bWantsToGrapple = true;
+}
+
+void UPlayerMovementComponent::TryGrappleJump()
+{
+	if (!IsGrappling())
 		return;
 
-	CurrentAnchor = GetWorld()->SpawnActor<AActorAnchor>(Anchor);
-	CurrentAnchor->InitAnchor(LastValidGrapplePoint, ActorToGrapple);
+	bWantsToGrappleJump = true;
 }
 
 void UPlayerMovementComponent::BeginPlay()
@@ -53,6 +70,12 @@ void UPlayerMovementComponent::OnMovementUpdated(float DeltaSeconds, const FVect
 	if (bWantsToClimb)
 	{
 		SetMovementMode(EMovementMode::MOVE_Custom, ECustomMovementMode::CMOVE_Climbing);
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TEXT("Moved to Grappling"));
+	}
+
+	if (bWantsToGrapple)
+	{
+		SetMovementMode(EMovementMode::MOVE_Custom, ECustomMovementMode::CMOVE_Grappling);
 	}
 
 	Super::OnMovementUpdated(DeltaSeconds, OldLocation, OldVelocity);
@@ -90,7 +113,14 @@ void UPlayerMovementComponent::PhysCustom(float deltaTime, int32 Iterations)
 {
 	if (CustomMovementMode == ECustomMovementMode::CMOVE_Climbing)
 	{
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TEXT("Doing Climbing"));
 		PhysClimbing(deltaTime, Iterations);
+	}
+
+	if (CustomMovementMode == ECustomMovementMode::CMOVE_Grappling)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TEXT("Doing Grappling"));
+		PhysGrappling(deltaTime, Iterations);
 	}
 
 	Super::PhysCustom(deltaTime, Iterations);
@@ -631,7 +661,9 @@ void UPlayerMovementComponent::CheckForGrapplePoint()
 		}
 	}
 	if (!bCanGrapple)
+	{
 		return;
+	}
 
 	LastValidGrapplePoint = Hit.ImpactPoint;
 	ActorToGrapple = Hit.GetActor();
@@ -639,4 +671,63 @@ void UPlayerMovementComponent::CheckForGrapplePoint()
 	
 	//if all fails, get out
 	
+}
+
+void UPlayerMovementComponent::PhysGrappling(float deltaTime, int32 iterations)
+{
+	if (deltaTime < MIN_TICK_TIME)
+		return;
+
+	if (bWantsToGrappleJump)
+	{
+		StopGrapple(deltaTime, iterations);
+		FVector jumpVelocity = FVector::UpVector * GrappleJumpForce;
+		FVector currentVelocity = Velocity;
+		//if z value of current velocity is negative cancel it out
+		currentVelocity.Z = FMath::Max(currentVelocity.Z, 0);
+		Velocity = currentVelocity;
+		UpdateComponentVelocity();
+		
+		AddImpulse(jumpVelocity);
+		return;
+	}
+
+	currentMaxGrappleDistance = FMath::Min(currentMaxGrappleDistance, FVector::Distance(CurrentAnchor->GetActorLocation(), GetActorLocation()));
+
+	
+	//Don't let the character go further if we are heading away from the grapple point
+	FVector grappleForce;
+	FVector grappleDirection = GetActorLocation() - CurrentAnchor->GetActorLocation();
+	float swingDot = FVector::DotProduct(Velocity, grappleDirection);
+	grappleForce = grappleDirection.GetSafeNormal();
+	grappleForce *= swingDot;
+	grappleForce *= -2.f;//figure out what this -2 does
+	if(swingDot > 0.f)
+		AddForce(grappleForce);
+
+	//Minor corrections for additional forces
+	FVector additionalForces = grappleDirection.GetSafeNormal() * currentMaxGrappleDistance;
+	additionalForces += CurrentAnchor->GetActorLocation();
+	grappleForce = (additionalForces - GetActorLocation()).GetSafeNormal();
+	grappleForce *= FMath::Clamp(FVector::Distance(GetActorLocation(), additionalForces),0.f,300.f);
+	grappleForce *= 10000.f;//figure out what this does
+	if (swingDot > 0.f)
+		AddForce(grappleForce);
+
+	Super::PhysFalling(deltaTime, iterations);
+	
+}
+
+void UPlayerMovementComponent::StopGrapple(float deltaTime, int32 Iterations)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TEXT("Stopped Grapple"));
+	bWantsToGrapple = false;
+	bWantsToGrappleJump = false;
+	SetMovementMode(EMovementMode::MOVE_Falling);
+	StartNewPhysics(deltaTime, Iterations);
+}
+
+bool UPlayerMovementComponent::IsGrappling() const
+{
+	return MovementMode == EMovementMode::MOVE_Custom && CustomMovementMode == ECustomMovementMode::CMOVE_Grappling;
 }

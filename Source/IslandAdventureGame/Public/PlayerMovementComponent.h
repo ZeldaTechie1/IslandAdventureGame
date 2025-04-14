@@ -19,18 +19,27 @@ class ISLANDADVENTUREGAME_API UPlayerMovementComponent : public UCharacterMoveme
 public:
 	void TryClimbing();
 	void CancelClimbing();
+
 	UFUNCTION(BlueprintPure)
 		bool IsClimbing() const;
+
 	UFUNCTION(BlueprintPure)
 		FVector GetClimbSurfaceNormal() const;
+
 	UFUNCTION(BlueprintCallable)
 		void TryClimbDashing();
+
 	UFUNCTION(BlueprintPure)
 		bool IsClimbDashing() const { return IsClimbing() && bIsClimbDashing; }
+
 	UFUNCTION(BlueprintPure)
 		FVector GetClimbDashDirection() const { return ClimbDashDirection; }
+
 	UFUNCTION(BlueprintCallable)
 		void TryGrapple();
+
+	UFUNCTION(BlueprintCallable)
+		void TryGrappleJump();
 
 private:
 	virtual void BeginPlay() override;
@@ -41,7 +50,6 @@ private:
 	virtual float GetMaxSpeed() const override;
 	virtual float GetMaxAcceleration() const override;
 
-	//TODO:Put all of these into a state
 	//Climbing Functions
 	void SweepAndStoreWallHits();
 	bool CanStartClimbing();
@@ -70,6 +78,9 @@ private:
 
 	//Grapple Functions
 	void CheckForGrapplePoint();
+	void PhysGrappling(float deltaTime, int32 Iterations);
+	void StopGrapple(float deltaTime, int32 Iterations);
+	bool IsGrappling() const;
 
 	//climbing variables
 	UPROPERTY(Category = "Character Movement: Climbing", EditAnywhere)
@@ -112,6 +123,8 @@ private:
 		float MaxGrappleAssistRadius = 1;
 	UPROPERTY(Category = "Character Movement: Grappling", EditAnywhere, meta = (ClampMin = "0.0", ClampMax = "3.0"))
 		float GrappleAssistPrecision = 1;
+		UPROPERTY(Category = "Character Movement: Grappling", EditAnywhere)
+		float GrappleJumpForce = 50;
 	UPROPERTY(Category = "Character Movement: Grappling", EditDefaultsOnly)
 		TSubclassOf<AActorAnchor> Anchor;
 
@@ -129,7 +142,10 @@ private:
 	float CurrentClimbDashTime;
 
 	bool bCanGrapple = false;
+	bool bWantsToGrapple = false;
+	bool bWantsToGrappleJump = false;
 	FVector LastValidGrapplePoint;
 	AActor* ActorToGrapple;
 	AActorAnchor* CurrentAnchor;
+	float currentMaxGrappleDistance;
 };

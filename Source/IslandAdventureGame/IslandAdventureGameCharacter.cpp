@@ -67,12 +67,6 @@ void AIslandAdventureGameCharacter::BeginPlay()
 
 void AIslandAdventureGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	//TODO: Update this to the Enhanced Input component
-	PlayerInputComponent->BindAction("Climb", IE_Pressed, this, &AIslandAdventureGameCharacter::Climb);
-	PlayerInputComponent->BindAction("CancelClimb", IE_Pressed, this, &AIslandAdventureGameCharacter::CancelClimb);
-	PlayerInputComponent->BindAction("ClimbDash", IE_Pressed, this, &AIslandAdventureGameCharacter::ClimbDash);
-	PlayerInputComponent->BindAction("Grapple", IE_Pressed, this, &AIslandAdventureGameCharacter::Grapple);
-
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
@@ -94,6 +88,12 @@ void AIslandAdventureGameCharacter::SetupPlayerInputComponent(UInputComponent* P
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AIslandAdventureGameCharacter::Look);
+
+		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Triggered, this, &AIslandAdventureGameCharacter::Climb);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AIslandAdventureGameCharacter::ClimbDash);
+
+		EnhancedInputComponent->BindAction(GrappleAction, ETriggerEvent::Triggered, this, &AIslandAdventureGameCharacter::Grapple);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AIslandAdventureGameCharacter::GrappleJump);
 	}
 	else
 	{
@@ -119,7 +119,7 @@ void AIslandAdventureGameCharacter::Move(const FInputActionValue& Value)
 
 		// get right vector 
 		FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		if (MovementComponent->IsClimbing())
+		if (IsValid(MovementComponent) && MovementComponent->IsClimbing())
 		{
 			ForwardDirection = FVector::CrossProduct(MovementComponent->GetClimbSurfaceNormal(), -GetActorRightVector());
 			RightDirection = FVector::CrossProduct(MovementComponent->GetClimbSurfaceNormal(), GetActorUpVector());
@@ -160,5 +160,12 @@ void AIslandAdventureGameCharacter::ClimbDash()
 
 void AIslandAdventureGameCharacter::Grapple()
 {
+	GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Blue, TEXT("TryGrapple"));
 	MovementComponent->TryGrapple();
+}
+
+void AIslandAdventureGameCharacter::GrappleJump()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Blue, TEXT("TryGrappleJump"));
+	MovementComponent->TryGrappleJump();
 }
